@@ -7,12 +7,15 @@ import (
 	"github.com/gin-gonic/gin/render"
 )
 
-type Render map[string]*template.Template
+type Render struct {
+	templates map[string]*template.Template
+	Funcs     template.FuncMap
+}
 
 var HTMLMulti render.Render = Render{}
 
 func New() Render {
-	return make(Render)
+	return Render{templates: make(map[string]*template.Template)}
 }
 
 func (r Render) Add(name string, tmpl *template.Template) {
@@ -22,23 +25,23 @@ func (r Render) Add(name string, tmpl *template.Template) {
 	if len(name) == 0 {
 		panic("template name cannot be empty")
 	}
-	r[name] = tmpl
+	r.templates[name] = tmpl
 }
 
 func (r Render) AddFromFiles(name string, files ...string) *template.Template {
-	tmpl := template.Must(template.ParseFiles(files...))
+	tmpl := template.Must(template.New(name).Funcs(r.Funcs).ParseFiles(files...))
 	r.Add(name, tmpl)
 	return tmpl
 }
 
 func (r Render) AddFromGlob(name, glob string) *template.Template {
-	tmpl := template.Must(template.ParseGlob(glob))
+	tmpl := template.Must(template.New(name).Funcs(r.Funcs).ParseGlob(glob))
 	r.Add(name, tmpl)
 	return tmpl
 }
 
 func (r *Render) AddFromString(name, templateString string) *template.Template {
-	tmpl := template.Must(template.New("").Parse(templateString))
+	tmpl := template.Must(template.New(name).Funcs(r.Funcs).Parse(templateString))
 	r.Add(name, tmpl)
 	return tmpl
 }
@@ -48,7 +51,7 @@ func (r Render) Render(w http.ResponseWriter, code int, data ...interface{}) err
 	name := data[0].(string)
 	obj := data[1]
 
-	tmpl, ok := r[name]
+	tmpl, ok := r.templates[name]
 	if !ok {
 		panic("unknown template name: " + name)
 	}
